@@ -7,6 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
 ![Doubao](https://img.shields.io/badge/Doubao-4E7FFF?style=flat)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat)
 
 AI 穿搭与理性购物助手。本仓库是 WearWise 项目的代码与文档（多项目仓库中的独立项目文件夹）。
 
