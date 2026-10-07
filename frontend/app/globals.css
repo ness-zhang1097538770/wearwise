@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+/* ===== WearWise 设计令牌 v1.0（产品经理提供）===== */
+@theme {
+  /* 中性 · 展台底色 */
+  --color-bone-0: #FAF8F5;
+  --color-bone-1: #F2EEE8;
+  --color-bone-2: #E8E4DC;
+  --color-bone-3: #A8A29A;
+  --color-ink-1: #1C1B19;
+  --color-ink-2: #57534E;
+
+  /* 紫罗兰 · AI 生成语义 */
+  --color-violet-50: #F0EFFF;
+  --color-violet-200: #C5C0F5;
+  --color-violet-400: #8B83E8;
+  --color-violet-600: #5A4FCF;
+  --color-violet-800: #3A317F;
+
+  /* 赤陶 · 用户主动作 */
+  --color-terra-50: #FBEDE9;
+  --color-terra-200: #EFC5B6;
+  --color-terra-400: #D87F63;
+  --color-terra-600: #C4553B;
+  --color-terra-800: #7A3320;
+
+  /* 语义状态 */
+  --color-ok: #3B6D11;
+  --color-warn: #BA7517;
+  --color-err: #A32D2D;
+  --color-info: #185FA5;
+
+  /* 圆角（图片容器用小圆角，避免贴纸感） */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* 字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans", "Microsoft YaHei", sans-serif;
+  --font-serif: Georgia, "Times New Roman", "Songti SC", "STSong", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* 基础样式 */
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--color-bone-0);
+  color: var(--color-ink-1);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 骨架屏：透明度呼吸，禁止 shimmer 扫光 */
+@keyframes skel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.skel {
+  background: var(--color-bone-1);
+  border-radius: var(--radius-sm);
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- 渐变工具类（产品经理要求增加色彩与渐变）---- */
+.grad-violet {
+  background: linear-gradient(135deg, var(--color-violet-400), var(--color-violet-600));
+}
+.grad-terra {
+  background: linear-gradient(135deg, var(--color-terra-400), var(--color-terra-600));
+}
+.grad-aurora {
+  background: linear-gradient(135deg, var(--color-violet-50) 0%, var(--color-terra-50) 100%);
+}
+.grad-hero {
+  background: linear-gradient(160deg, var(--color-violet-100, #E7E4FB) 0%, var(--color-bone-0) 70%);
+}
+.grad-card {
+  background: linear-gradient(150deg, #ffffff 0%, var(--color-violet-50) 100%);
+}
+.grad-sunset {
+  background: linear-gradient(135deg, var(--color-terra-400), var(--color-violet-400));
+}
+
+/* 小猫 IP 轻微浮动 */
+@keyframes cat-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.cat-float {
+  animation: cat-float 3s ease-in-out infinite;
+}
+
+/* ---- 界面美化：卡片阴影 / 悬停微动效 / 渐变文字 ---- */
+.card-soft {
+  box-shadow: 0 1px 2px rgba(28, 27, 25, 0.04), 0 6px 20px rgba(28, 27, 25, 0.06);
+}
+.hover-lift {
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(28, 27, 25, 0.12);
+}
+.grad-text {
+  background: linear-gradient(135deg, var(--color-violet-600), var(--color-terra-600));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.btn-grad {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+.btn-grad:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(90, 79, 207, 0.28);
+}
+.btn-terra-grad {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+.btn-terra-grad:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(196, 85, 59, 0.28);
+}
+
+/* 小猫跳一跳：蹦起、落地、小弹回 */
+@keyframes cat-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  18% { transform: translateY(-14px) scale(1.03, 0.98); }
+  34% { transform: translateY(0) scale(0.98, 1.04); }
+  46% { transform: translateY(-6px) scale(1.01, 1); }
+  58% { transform: translateY(0) scale(1, 1); }
+}
+.cat-hop {
+  animation: cat-hop 2.6s ease-in-out infinite;
+}
+
+/* 小猫眨眼（左眼）：浅色眼皮快速闭合再睁开 */
+@keyframes cat-wink {
+  0%, 86%, 100% { transform: translate(-50%, -50%) scaleY(0); opacity: 0; }
+  90% { transform: translate(-50%, -50%) scaleY(1); opacity: 1; }
+  96% { transform: translate(-50%, -50%) scaleY(1); opacity: 1; }
+}
+.cat-wink {
+  width: 16px;
+  height: 6px;
+  background: #dad5d1;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: cat-wink 3.6s ease-in-out infinite;
+}
+
+/* 小猫切页时“走路”摇摆（模拟跟随走动） */
+@keyframes cat-walk {
+  0%   { transform: translateX(0) rotate(0deg) translateY(0); }
+  15%  { transform: translateX(7px) rotate(-5deg) translateY(-4px); }
+  35%  { transform: translateX(-7px) rotate(5deg) translateY(-4px); }
+  55%  { transform: translateX(5px) rotate(-3deg) translateY(-2px); }
+  75%  { transform: translateX(-5px) rotate(3deg) translateY(-2px); }
+  100% { transform: translateX(0) rotate(0deg) translateY(0); }
+}
+.cat-walk {
+  animation: cat-walk 0.9s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-float,
+  .cat-walk { animation: none; }
+}
+
+/* 尊重系统减少动效设置 */
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; }
+}

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WearWise 验收界面</title>
+<style>
+  :root { --bg:#f5f5f2; --card:#fff; --line:#e5e3de; --ink:#222; --sub:#777; --brand:#3a4a3f; --accent:#b4783f; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"PingFang SC",sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:16px 20px; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.8; }
+  main { max-width:960px; margin:20px auto; padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ main{grid-template-columns:1fr;} }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .card h2 { margin:0 0 12px; font-size:16px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:14px; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  input, select { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; margin:4px 0; font-size:14px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:120px; }
+  .item, .outfit, .avatar-cand { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; }
+  img { max-width:100%; border-radius:6px; margin-top:8px; }
+  .tag { display:inline-block; background:#eef0ee; border-radius:4px; padding:2px 6px; margin:2px; font-size:12px; color:var(--sub); }
+  .outfit h3 { margin:0 0 6px; font-size:15px; }
+  .outfit .reason { color:var(--sub); font-size:13px; }
+  .status { font-size:13px; color:var(--sub); }
+  #stream { white-space:pre-wrap; font-size:13px; color:var(--sub); min-height:20px; }
+  .muted { color:var(--sub); font-size:12px; }
+  .cand-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cand-grid img { cursor:pointer; border:2px solid transparent; }
+  .cand-grid img.sel { border-color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>WearWise 验收界面（阶段 2.2）</h1>
+  <p>衣柜录入 → 衣物识别 → 穿搭方案 → 平铺图 → Avatar 形象 → 上身图</p>
+</header>
+<main>
+  <section class="card">
+    <h2>1. 录入衣物</h2>
+    <input type="file" id="file" accept="image/*" multiple>
+    <button id="uploadBtn">上传并识别</button>
+    <p class="muted" id="uploadStatus"></p>
+    <div id="garments"></div>
+  </section>
+
+  <section class="card">
+    <h2>2. 生成穿搭</h2>
+    <div class="row">
+      <div><label class="muted">场合</label><input id="scene" value="日常通勤"></div>
+      <div><label class="muted">城市（自动查天气）</label><input id="location" placeholder="如：北京，留空则手动填天气"></div>
+    </div>
+    <div class="row">
+      <div><label class="muted">天气（手动）</label><input id="weather" placeholder="如：晴 20°C"></div>
+      <div><label class="muted">风格</label><input id="style" placeholder="如：简约"></div>
+    </div>
+    <div class="row">
+      <div><label class="muted">正式程度</label><input id="formal" placeholder="如：休闲"></div>
+    </div>
+    <button id="genBtn">生成穿搭（流式）</button>
+    <div class="status" id="stream"></div>
+    <div id="outfits"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. 数字形象（Avatar）</h2>
+    <p class="muted">不传真人照片，用体型参数生成专属形象（全部可选，留空用默认）</p>
+    <div class="row">
+      <div><label class="muted">身高</label><input id="avHeight" placeholder="如 165cm"></div>
+      <div><label class="muted">体型</label><input id="avBuild" placeholder="如 中等偏瘦"></div>
+    </div>
+    <div class="row">
+      <div><label class="muted">肤色</label><input id="avSkin" placeholder="如 自然肤色"></div>
+      <div><label class="muted">发色发型</label><input id="avHair" placeholder="如 黑色长发"></div>
+    </div>
+    <button id="avatarBtn">生成 4 个候选</button>
+    <div class="status" id="avatarStatus"></div>
+    <div id="avatarBox"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. 购物防冲动分析</h2>
+    <p class="muted">上传商品截图，看它与你现有衣柜的匹配度和值不值得买</p>
+    <input type="file" id="productFile" accept="image/*">
+    <button id="analyzeBtn">分析商品</button>
+    <div class="status" id="analyzeStatus"></div>
+    <div id="analysisBox"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const API = "/api/v1";
+
+async function loadGarments() {
+  const res = await fetch(`${API}/garments`);
+  const list = await res.json();
+  const box = $("garments");
+  box.innerHTML = list.map(g => `
+    <div class="item">
+      <div><b>${g.name || "未命名"}</b> <span class="tag">${g.status}</span></div>
+      <div>
+        <span class="tag">${g.category}</span><span class="tag">${g.color}</span>
+        <span class="tag">${g.pattern}</span><span class="tag">${g.material}</span>
+        <span class="tag">${g.fit}</span><span class="tag">${g.season}</span>
+      </div>
+      ${(g.cutout_url || g.image_url) ? `<img src="${g.cutout_url || g.image_url}">` : ""}
+      <div class="row" style="margin-top:8px">
+        <input placeholder="名称" value="${g.name}" data-id="${g.id}" data-field="name">
+        <button class="ghost" onclick="saveGarment(${g.id})">确认/保存</button>
+        <button class="ghost" onclick="reRecognize(${g.id})">重新识别</button>
+        <button class="ghost" onclick="delGarment(${g.id})">删除</button>
+      </div>
+    </div>`).join("") || '<p class="muted">还没有衣物，先上传一张试试。</p>';
+}
+
+$("uploadBtn").onclick = async () => {
+  const files = $("file").files;
+  if (!files.length) { $("uploadStatus").textContent = "请先选择图片"; return; }
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f);
+  $("uploadStatus").textContent = `上传识别 ${files.length} 件中…`;
+  const res = await fetch(`${API}/garments`, { method: "POST", body: fd });
+  if (!res.ok) { $("uploadStatus").textContent = "上传失败：" + (await res.text()); return; }
+  const list = await res.json();
+  $("uploadStatus").textContent = `识别完成 ${list.length} 件，可在下方修改标签后保存`;
+  loadGarments();
+};
+
+async function saveGarment(id) {
+  const inputs = document.querySelectorAll(`input[data-id="${id}"]`);
+  const body = {};
+  inputs.forEach(i => body[i.dataset.field] = i.value);
+  await fetch(`${API}/garments/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  loadGarments();
+}
+
+async function delGarment(id) {
+  if (!confirm("确认删除这件衣物？")) return;
+  await fetch(`${API}/garments/${id}`, { method: "DELETE" });
+  loadGarments();
+}
+
+async function reRecognize(id) {
+  const res = await fetch(`${API}/garments/${id}/recognize`, { method: "POST" });
+  if (res.ok) loadGarments();
+}
+
+$("genBtn").onclick = async () => {
+  const body = {
+    scene: $("scene").value, weather: $("weather").value,
+    location: $("location").value, style: $("style").value, formal: $("formal").value
+  };
+  $("stream").textContent = "";
+  $("outfits").innerHTML = "";
+  const res = await fetch(`${API}/outfits`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split("\n\n");
+    buf = parts.pop();
+    for (const part of parts) {
+      let ev = "message", data = "";
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event:")) ev = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      const obj = JSON.parse(data);
+      if (ev === "chunk") $("stream").textContent += obj.text + "\n";
+      else if (ev === "done") renderOutfits(obj);
+      else if (ev === "error") $("stream").textContent += "❌ " + obj.error.message;
+    }
+  }
+};
+
+function renderOutfits(data) {
+  const box = $("outfits");
+  const w = data.weather || {};
+  const weatherHtml = w.condition ? `
+    <div class="muted" style="margin-bottom:8px">☁ 天气：${w.location || ""} 体感 ${w.feels_like ?? "?"}°C ${w.condition}${w.temperature_rule ? "（" + w.temperature_rule.label + "）" : ""}</div>` : "";
+  box.innerHTML = weatherHtml + data.outfits.map((o, idx) => `
+    <div class="outfit">
+      <h3>${o.name}</h3>
+      <div>${Object.entries(o.items).map(([k,v]) => `<span class="tag">${k}:${v}</span>`).join("")}</div>
+      <div class="reason">${(o.reasons||[]).join("；")}</div>
+      <div class="row" style="margin-top:8px">
+        <button onclick="genImage(${data.outfit_id}, ${idx}, 'image', this)">生成平铺图</button>
+        <button onclick="genImage(${data.outfit_id}, ${idx}, 'avatar-image', this)">生成上身图</button>
+        <button onclick="genImage(${data.outfit_id}, ${idx}, 'video', this)">生成试穿视频</button>
+        <button class="ghost" onclick="fav(${data.outfit_id}, this)">收藏</button>
+      </div>
+      <div class="status" id="img-${idx}"></div>
+    </div>`).join("");
+}
+
+async function genImage(outfitId, idx, kind, btn) {
+  btn.disabled = true;
+  const st = $("img-" + idx);
+  const label = { image: "平铺图", "avatar-image": "上身图", video: "试穿视频" }[kind] || "图片";
+  st.textContent = label + "生成中…";
+  const res = await fetch(`${API}/outfits/${outfitId}/items/${idx}/${kind}`, { method: "POST" });
+  if (!res.ok) { st.textContent = "❌ 提交失败"; btn.disabled = false; return; }
+  const { task_id } = await res.json();
+  const timer = setInterval(async () => {
+    const t = await (await fetch(`${API}/tasks/${task_id}`)).json();
+    if (t.status === "done") {
+      clearInterval(timer);
+      if (kind === "video" && t.result.video_url) {
+        st.innerHTML = `<video src="${t.result.video_url}" controls style="max-width:100%;border-radius:6px"></video><br><span class="muted">AI 生成参考，非实物效果</span>`;
+      } else if (t.result.image_url) {
+        st.innerHTML = `<img src="${t.result.image_url}"><br><span class="muted">AI 生成参考图，非实物效果</span>`;
+      } else {
+        st.textContent = "✅ 完成";
+      }
+      btn.disabled = false;
+    } else if (t.status === "failed") {
+      clearInterval(timer);
+      st.textContent = "❌ " + t.error;
+      btn.disabled = false;
+    } else {
+      st.textContent = "生成中…（" + t.status + "）";
+    }
+  }, 1500);
+}
+
+async function fav(outfitId, btn) {
+  await fetch(`${API}/outfits/${outfitId}/favorite`, { method: "POST" });
+  btn.textContent = btn.textContent === "收藏" ? "已收藏" : "收藏";
+}
+
+// ---- Avatar ----
+$("avatarBtn").onclick = async () => {
+  const body = {
+    height: $("avHeight").value, build: $("avBuild").value,
+    skin: $("avSkin").value, hair: $("avHair").value
+  };
+  $("avatarStatus").textContent = "已提交，生成 4 个候选（约 1 分钟）…";
+  $("avatarBox").innerHTML = "";
+  const res = await fetch(`${API}/avatars`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  const av = await res.json();
+  const timer = setInterval(async () => {
+    const list = await (await fetch(`${API}/avatars`)).json();
+    const cur = list.find(a => a.id === av.id);
+    if (!cur) return;
+    if (cur.status === "done") {
+      clearInterval(timer);
+      renderAvatarCandidates(cur);
+    } else if (cur.status === "failed") {
+      clearInterval(timer);
+      $("avatarStatus").textContent = "❌ " + cur.error;
+    }
+  }, 2000);
+};
+
+function renderAvatarCandidates(av) {
+  $("avatarStatus").textContent = "已生成，点一个选中为主形象";
+  $("avatarBox").innerHTML = `
+    <div class="cand-grid">${av.candidates.map(c => `
+      <div class="avatar-cand">
+        <img src="${c.image_url}" class="${c.index === av.selected ? 'sel' : ''}"
+             onclick="selectAvatar(${av.id}, ${c.index})">
+        <div class="muted">候选 ${c.index + 1}</div>
+      </div>`).join("")}
+    </div>`;
+}
+
+async function selectAvatar(id, index) {
+  await fetch(`${API}/avatars/${id}/select`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index })
+  });
+  $("avatarStatus").textContent = "✅ 已设为主形象（候选 " + (index + 1) + "），现在可以生成上身图了";
+  const list = await (await fetch(`${API}/avatars`)).json();
+  renderAvatarCandidates(list.find(a => a.id === id));
+}
+
+loadGarments();
+loadAvatars();
+
+async function loadAvatars() {
+  const list = await (await fetch(`${API}/avatars`)).json();
+  const primary = list.find(a => a.is_primary);
+  if (primary) {
+    $("avatarStatus").textContent = "当前主形象：" + (primary.selected !== null ? "候选 " + (primary.selected + 1) : "");
+    renderAvatarCandidates(primary);
+  }
+}
+
+// ---- 购物分析 ----
+$("analyzeBtn").onclick = async () => {
+  const file = $("productFile").files[0];
+  if (!file) { $("analyzeStatus").textContent = "请先选择商品图片"; return; }
+  const fd = new FormData();
+  fd.append("file", file);
+  $("analyzeStatus").textContent = "分析中…";
+  $("analysisBox").innerHTML = "";
+  const res = await fetch(`${API}/analysis`, { method: "POST", body: fd });
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split("\n\n");
+    buf = parts.pop();
+    for (const part of parts) {
+      let ev = "message", data = "";
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event:")) ev = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      const obj = JSON.parse(data);
+      if (ev === "chunk") $("analyzeStatus").textContent = obj.text;
+      else if (ev === "done") renderAnalysis(obj);
+      else if (ev === "error") $("analyzeStatus").textContent = "❌ " + obj.error.message;
+    }
+  }
+};
+
+function renderAnalysis(d) {
+  const r = d.report || {};
+  const p = d.product || {};
+  $("analysisBox").innerHTML = `
+    <div class="outfit">
+      <h3>商品：${p.name || "未知"}</h3>
+      <div><span class="tag">${p.category}</span><span class="tag">${p.color}</span><span class="tag">${p.material}</span></div>
+      <div style="margin-top:8px">
+        <div>衣柜匹配度：<b>${r.match_score ?? "-"}</b> / 100　<span class="muted">${r.match_reason || ""}</span></div>
+        <div>重复度：<b>${r.duplicate_score ?? "-"}</b> / 100　<span class="muted">${r.duplicate_reason || ""}</span></div>
+        <div>可搭配件数：<b>${r.can_pair_count ?? "-"}</b>　<span class="muted">${(r.pair_examples || []).join("；")}</span></div>
+        ${r.cost_per_wear ? `<div>单次穿着成本：<b>${r.cost_per_wear}</b></div>` : ""}
+        <div style="margin-top:8px">建议：<b>${r.suggestion || ""}</b>　<span class="muted">${r.suggestion_reason || ""}</span></div>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>
